@@ -1,27 +1,24 @@
 #Requires -Version 5.1
-[CmdletBinding()]
-param(
-    [string]$GitLabHost = 'gitlab.example.com',
-    [int]$ProjectId = 1234
-)
 $ErrorActionPreference = 'Stop'
-Get-Command glab -ErrorAction Stop | Out-Null
-& (Join-Path $PSScriptRoot 'Build-Installer.ps1')
-$version = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim()
-$baseEndpoint = "projects/$ProjectId/packages/generic/update-tools"
-$existingJson = & glab api --hostname $GitLabHost "projects/$ProjectId/packages?package_type=generic&package_name=update-tools&package_version=$version"
-if ($LASTEXITCODE -ne 0) { throw 'Cannot check existing package versions.' }
-$existing = @($existingJson | ConvertFrom-Json | Where-Object { $_.name -eq 'update-tools' -and $_.version -eq $version })
-if ($existing.Count -gt 0) { throw "Version $version is already published. Bump VERSION before publishing again." }
-# Upload the immutable version before advancing the latest installer.
-foreach ($packageVersion in @($version, 'latest')) {
-    # Advance release.json only after all installer files are available.
-    foreach ($file in @('install.ps1.sha256', 'install.ps1', 'release.json')) {
-        $path = Join-Path $PSScriptRoot "dist\$file"
-        $contentType = 'application/octet-stream'
-        if ($file -eq 'release.json') { $contentType = 'application/json' }
-        & glab api --hostname $GitLabHost --method PUT "$baseEndpoint/$packageVersion/$file" --header "Content-Type: $contentType" --input $path
-        if ($LASTEXITCODE -ne 0) { throw "Failed to publish $packageVersion/$file" }
-    }
+$version = (Get-Content "$PSScriptRoot\VERSION" -Raw).Trim()
+$endpoint = 'projects/1234/packages/generic/update-tools'
+$baseUrl = "https://gitlab.example.com/api/v4/$endpoint"
+$dist = New-Item -ItemType Directory -Path "$PSScriptRoot\dist" -Force
+Compress-Archive -LiteralPath "$PSScriptRoot\Update-Tools.ps1", "$PSScriptRoot\update-tools.cmd" -DestinationPath "$dist\update-tools.zip" -Force
+@{
+    version = $version
+    description = 'Update Winget, Scoop, and uv tools.'
+    homepage = 'https://gitlab.example.com/taiki.yoshinaka/update-tools'
+    url = "$baseUrl/$version/update-tools.zip"
+    hash = (Get-FileHash "$dist\update-tools.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+    bin = 'update-tools.cmd'
+} | ConvertTo-Json | Set-Content "$dist\update-tools.json" -Encoding UTF8
+Copy-Item "$PSScriptRoot\install.ps1" "$dist\install.ps1"
+foreach ($file in @('update-tools.zip', 'update-tools.json', 'install.ps1')) {
+    glab api --hostname gitlab.example.com -X PUT "$endpoint/$version/$file" -H 'Content-Type: application/octet-stream' --input "$dist\$file"
+    if ($LASTEXITCODE -ne 0) { throw "Upload failed: $file" }
 }
-Write-Host "Install: irm https://$GitLabHost/api/v4/$baseEndpoint/latest/install.ps1 | iex"
+foreach ($file in @('update-tools.json', 'install.ps1')) {
+    glab api --hostname gitlab.example.com -X PUT "$endpoint/latest/$file" -H 'Content-Type: application/octet-stream' --input "$dist\$file"
+    if ($LASTEXITCODE -ne 0) { throw "Upload failed: latest/$file" }
+}
