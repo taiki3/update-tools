@@ -36,10 +36,10 @@ function Assert($condition, $message) { if (!$condition) { throw $message } }
 
 foreach ($alreadyInstalled in @($true, $false)) {
     & {
-        $state = @{ Calls = @(); ScoopPresent = $alreadyInstalled }
+        $state = @{ Calls = @(); ScoopPresent = $alreadyInstalled; WingetPresent = $alreadyInstalled; AppPresent = $alreadyInstalled }
         function Get-Command {
             param($Name)
-            if (($Name -eq 'scoop.cmd' -and $state.ScoopPresent) -or ($Name -eq 'winget.exe' -and $alreadyInstalled)) { $Name }
+            if (($Name -eq 'scoop.cmd' -and $state.ScoopPresent) -or ($Name -eq 'winget.exe' -and $state.WingetPresent)) { $Name }
         }
         function Set-ExecutionPolicy {}
         function Invoke-RestMethod { 'mock installer' }
@@ -47,8 +47,9 @@ foreach ($alreadyInstalled in @($true, $false)) {
         function scoop.cmd {
             param($action, $package)
             $global:LASTEXITCODE = 0
-            if ($action -eq 'prefix') { if (!$alreadyInstalled) { $global:LASTEXITCODE = 1 }; return }
+            if ($action -eq 'prefix') { if ($state.AppPresent) { return $root }; return 'Could not find app path.' }
             $state.Calls += "$action $package"
+            if ($package -eq 'main/winget') { $state.WingetPresent = $true } else { $state.AppPresent = $true }
         }
         & "$root\install.ps1"
         if ($alreadyInstalled) { Assert ($state.Calls.Count -eq 0) 'Existing tools must be untouched' }
