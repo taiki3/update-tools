@@ -37,9 +37,18 @@ function Invoke-UpdateStep {
         }
         $ErrorActionPreference = 'Stop'
         $PSNativeCommandUseErrorActionPreference = $false
-        # Scoop is invoked through its cmd shim to isolate its exit statements.
-        & $Command @Arguments | Out-Host
-        $code = $LASTEXITCODE
+        # WinGet writes UTF-8 to a pipe even when the terminal uses CP932.
+        # PowerShell decodes native output using Console.OutputEncoding.
+        $savedEncoding = [Console]::OutputEncoding
+        $isWinget = [IO.Path]::GetFileName($Command) -ieq 'winget.exe'
+        try {
+            if ($isWinget) { [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false) }
+            # Scoop is invoked through its cmd shim to isolate its exit statements.
+            & $Command @Arguments | Out-Host
+            $code = $LASTEXITCODE
+        } finally {
+            if ($isWinget) { [Console]::OutputEncoding = $savedEncoding }
+        }
         if ($code -eq 0) { return (New-StepResult $Name 'OK') }
         if ([IO.Path]::GetFileName($Command) -eq 'winget.exe' -and $code -eq -1978335189) {
             return (New-StepResult $Name 'Already up to date')

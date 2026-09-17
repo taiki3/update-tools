@@ -71,7 +71,14 @@ Winget・pip 等による導入や、公式インストール記録がない場�
 ```powershell
 pwsh -NoProfile -File .\tests\Update-Tools.Tests.ps1
 pwsh -NoProfile -File .\tests\Installer.Tests.ps1
+pwsh -NoProfile -File .\tests\Encoding.Tests.ps1
 ```
+
+文字コードのテストは実際の `winget upgrade --help` を使用します。アプリの更新やインストールは行いません。
+
+## 日本語の文字化け
+
+0.1.1 で、CP932 のターミナル環境で Winget の日本語が `繝...` のように崩れる問題を修正しました。Winget の実行中だけ UTF-8 として出力を読み取り、終了後（失敗時も含む）は元の文字コード設定に戻します。既存のインストールは上記ワンライナーを再実行すると更新できます。
 
 ## 配布版の更新
 
