@@ -19,4 +19,6 @@ $output = Join-Path $OutputDir 'install.ps1'
 [IO.File]::WriteAllText($output, $installer, [Text.Encoding]::ASCII)
 $checksum = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
 [IO.File]::WriteAllText((Join-Path $OutputDir 'install.ps1.sha256'), "$checksum  install.ps1`n", [Text.Encoding]::ASCII)
+$release = [ordered]@{ Version = $version; Sha256 = $checksum } | ConvertTo-Json
+[IO.File]::WriteAllText((Join-Path $OutputDir 'release.json'), $release, [Text.Encoding]::ASCII)
 Write-Host "Built UpdateTools $version : $output"

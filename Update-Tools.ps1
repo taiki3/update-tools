@@ -1,6 +1,57 @@
 ﻿#Requires -Version 5.1
 [CmdletBinding(SupportsShouldProcess)]
-param([switch]$IncludeGlobalScoop)
+param([switch]$IncludeGlobalScoop, [switch]$SkipSelfUpdate)
+
+function Invoke-ToolsSelfUpdate {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$InstallDir)
+    $markerPath = Join-Path $InstallDir 'INSTALLATION.json'
+    if (!(Test-Path -LiteralPath $markerPath) -or (Test-Path -LiteralPath (Join-Path $InstallDir '.git'))) {
+        return $false
+    }
+    if (!$PSCmdlet.ShouldProcess('UpdateTools', 'Check for a new version and install it')) { return $false }
+    $installerPath = $null
+    try {
+        $ErrorActionPreference = 'Stop'
+        $PSNativeCommandUseErrorActionPreference = $false
+        $marker = Get-Content -LiteralPath $markerPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($marker.Application -ne 'UpdateTools') { throw 'Invalid installation marker.' }
+        $current = (Get-Content -LiteralPath (Join-Path $InstallDir 'VERSION') -Raw).Trim()
+        if ($current -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid installed version.' }
+        $packageBase = 'https://gitlab.example.com/api/v4/projects/1234/packages/generic/update-tools'
+        Write-Host "`n=== UpdateTools self update ===" -ForegroundColor Cyan
+        $release = Invoke-RestMethod -Uri "$packageBase/latest/release.json" -TimeoutSec 10 -ErrorAction Stop
+        if ($release -is [string]) { $release = $release | ConvertFrom-Json }
+        if ($release.Version -notmatch '^\d+\.\d+\.\d+$' -or $release.Sha256 -notmatch '^[a-fA-F0-9]{64}$') {
+            throw 'Invalid release metadata.'
+        }
+        if ([version]$release.Version -le [version]$current) {
+            Write-Host "UpdateTools $current is up to date."
+            return $false
+        }
+        Write-Host "Updating UpdateTools $current -> $($release.Version)"
+        $installerPath = Join-Path ([IO.Path]::GetTempPath()) ("update-tools-self-{0}.ps1" -f [guid]::NewGuid())
+        # Pin both version and checksum so publishing latest cannot mix releases mid-update.
+        Invoke-WebRequest -UseBasicParsing -Uri "$packageBase/$($release.Version)/install.ps1" -OutFile $installerPath -TimeoutSec 30 -ErrorAction Stop
+        if ((Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash -ine $release.Sha256) {
+            throw 'Installer checksum mismatch.'
+        }
+        $shell = Join-Path $PSHOME 'pwsh.exe'
+        if (!(Test-Path -LiteralPath $shell)) { $shell = Join-Path $PSHOME 'powershell.exe' }
+        & $shell -NoProfile -ExecutionPolicy Bypass -File $installerPath -InstallDir $InstallDir -NoPath | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "Installer failed (exit $LASTEXITCODE)." }
+        $installed = (Get-Content -LiteralPath (Join-Path $InstallDir 'VERSION') -Raw).Trim()
+        if ($installed -ne $release.Version) { throw 'Installed version does not match the release.' }
+        return $true
+    } catch {
+        Write-Warning "UpdateTools self update failed; continuing with the installed version. $($_.Exception.Message)"
+        return $false
+    } finally {
+        if ($installerPath -and (Test-Path -LiteralPath $installerPath)) {
+            Remove-Item -LiteralPath $installerPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
 
 function Find-Tool {
     param([string]$Name)
@@ -192,5 +243,14 @@ function Invoke-UpdateTools {
 
 # Dot-sourcing loads helpers for offline verification without running any updates.
 if ($MyInvocation.InvocationName -ne '.') {
+    if (!$SkipSelfUpdate -and (Invoke-ToolsSelfUpdate -InstallDir $PSScriptRoot)) {
+        # Start a fresh process to load the new code, with exactly one self-update check.
+        $shell = Join-Path $PSHOME 'pwsh.exe'
+        if (!(Test-Path -LiteralPath $shell)) { $shell = Join-Path $PSHOME 'powershell.exe' }
+        $restartArguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath, '-SkipSelfUpdate')
+        if ($IncludeGlobalScoop) { $restartArguments += '-IncludeGlobalScoop' }
+        & $shell @restartArguments
+        exit $LASTEXITCODE
+    }
     exit (Invoke-UpdateTools -IncludeGlobalScoop:$IncludeGlobalScoop)
 }

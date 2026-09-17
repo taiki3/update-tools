@@ -26,11 +26,31 @@ __PAYLOAD__
         if ($hash -ne $file.Sha256) { throw "Checksum mismatch: $($file.Name)" }
         $decoded[$file.Name] = $bytes
     }
+    $decoded['VERSION'] = [Text.Encoding]::ASCII.GetBytes($version)
+    $decoded['INSTALLATION.json'] = [Text.Encoding]::ASCII.GetBytes('{"Application":"UpdateTools"}')
     [IO.Directory]::CreateDirectory($InstallDir) | Out-Null
-    foreach ($name in $decoded.Keys) {
-        [IO.File]::WriteAllBytes((Join-Path $InstallDir $name), $decoded[$name])
+    $backups = @{}
+    $written = New-Object 'Collections.Generic.List[string]'
+    try {
+        foreach ($name in @('Update-Tools.ps1', 'update-tools.cmd', 'INSTALLATION.json', 'VERSION')) {
+            $path = Join-Path $InstallDir $name
+            $backups[$name] = $null
+            if ([IO.File]::Exists($path)) {
+                $backups[$name] = [IO.File]::ReadAllBytes($path)
+                # The cmd launcher may currently be running. Never rewrite unchanged files.
+                if ([Convert]::ToBase64String($backups[$name]) -ceq [Convert]::ToBase64String($decoded[$name])) { continue }
+            }
+            $written.Add($name)
+            [IO.File]::WriteAllBytes($path, $decoded[$name])
+        }
+    } catch {
+        foreach ($name in $written) {
+            $path = Join-Path $InstallDir $name
+            if ($null -ne $backups[$name]) { [IO.File]::WriteAllBytes($path, $backups[$name]) }
+            elseif ([IO.File]::Exists($path)) { [IO.File]::Delete($path) }
+        }
+        throw
     }
-    [IO.File]::WriteAllText((Join-Path $InstallDir 'VERSION'), $version)
 
     if (!$NoPath) {
         $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')

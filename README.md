@@ -25,6 +25,12 @@ update-tools
 update-tools -WhatIf
 ```
 
+0.2.0 以降のインストーラー導入版は、起動時に UpdateTools 自体の最新版を確認します。新しい版があればチェックサムを検証して適用し、その場で新しいコードに切り替えてからアプリの一括更新を続けます。最新版の場合は再インストールしません。
+
+自己更新の通信や適用に失敗した場合は警告を表示し、手元の版で続行します。通信のタイムアウトは版の確認が10秒、インストーラーの取得が30秒です。`-WhatIf` では自己更新の通信・書き換えも行いません。自己更新だけ省略する場合は `update-tools -SkipSelfUpdate` を使います。
+
+0.1.x からは、初回だけインストール用ワンライナーを再実行してください。Git リポジトリを直接実行する開発環境は自己更新の対象外です。
+
 リポジトリを取得して直接実行する場合:
 
 ```powershell
@@ -39,11 +45,12 @@ update-tools -WhatIf
 
 順に以下を実行します。
 
-1. `winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements`
-2. `scoop update`
-3. `scoop update *`
-4. 公式インストーラー版の uv なら `uv self update`
-5. `uv tool upgrade --all`
+1. UpdateTools 自体の最新版を確認・適用
+2. `winget upgrade --all --include-unknown --accept-source-agreements --accept-package-agreements`
+3. `scoop update`
+4. `scoop update *`
+5. 公式インストーラー版の uv なら `uv self update`
+6. `uv tool upgrade --all`
 
 Scoop・uv が見つからない場合は、それぞれ「インストールしますか？ [y/N]」と確認します。`y` または `Y` の場合だけインストールし、Enter・`n`・その他の入力ならそのツールをスキップします。
 
@@ -72,6 +79,7 @@ Winget・pip 等による導入や、公式インストール記録がない場�
 pwsh -NoProfile -File .\tests\Update-Tools.Tests.ps1
 pwsh -NoProfile -File .\tests\Installer.Tests.ps1
 pwsh -NoProfile -File .\tests\Encoding.Tests.ps1
+pwsh -NoProfile -File .\tests\SelfUpdate.Tests.ps1
 ```
 
 文字コードのテストは実際の `winget upgrade --help` を使用します。アプリの更新やインストールは行いません。
@@ -88,7 +96,7 @@ pwsh -NoProfile -File .\tests\Encoding.Tests.ps1
 pwsh -NoProfile -File .\Publish-Package.ps1
 ```
 
-`dist/install.ps1` とチェックサムを生成し、Generic Package `update-tools/<VERSION>`、続いて `update-tools/latest` にアップロードします。既存バージョンの再公開は拒否します。`latest` の同名ファイルは GitLab の最新アップロードが取得されます。認証情報は配布ファイルに含めません。
+`dist/install.ps1`、チェックサム、自己更新用の `release.json` を生成し、Generic Package `update-tools/<VERSION>`、続いて `update-tools/latest` にアップロードします。既存バージョンの再公開は拒否します。`release.json` はインストーラーの公開後にアップロードし、自己更新ではそこに記載されたバージョンの固定 URL とチェックサムを使います。`latest` の同名ファイルは GitLab の最新アップロードが取得されます。認証情報は配布ファイルに含めません。
 
 ローカル検証用にインストール先を変えて PATH 登録を省略する場合:
 

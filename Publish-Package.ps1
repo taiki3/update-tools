@@ -15,9 +15,12 @@ $existing = @($existingJson | ConvertFrom-Json | Where-Object { $_.name -eq 'upd
 if ($existing.Count -gt 0) { throw "Version $version is already published. Bump VERSION before publishing again." }
 # Upload the immutable version before advancing the latest installer.
 foreach ($packageVersion in @($version, 'latest')) {
-    foreach ($file in @('install.ps1.sha256', 'install.ps1')) {
+    # Advance release.json only after all installer files are available.
+    foreach ($file in @('install.ps1.sha256', 'install.ps1', 'release.json')) {
         $path = Join-Path $PSScriptRoot "dist\$file"
-        & glab api --hostname $GitLabHost --method PUT "$baseEndpoint/$packageVersion/$file" --header 'Content-Type: application/octet-stream' --input $path
+        $contentType = 'application/octet-stream'
+        if ($file -eq 'release.json') { $contentType = 'application/json' }
+        & glab api --hostname $GitLabHost --method PUT "$baseEndpoint/$packageVersion/$file" --header "Content-Type: $contentType" --input $path
         if ($LASTEXITCODE -ne 0) { throw "Failed to publish $packageVersion/$file" }
     }
 }
