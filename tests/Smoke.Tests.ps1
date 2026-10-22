@@ -57,7 +57,7 @@ try { foreach ($alreadyInstalled in @($true, $false)) {
         else {
             Assert ($state.Calls.Count -eq 3) 'Install only missing Scoop, Winget, and UpdateTools'
             Assert ($state.Calls[1] -eq 'install main/winget') 'Install Winget through Scoop'
-            Assert ($state.Calls[2] -like 'install https://*/latest/update-tools.json') 'Install UpdateTools from its Scoop manifest'
+            Assert ($state.Calls[2] -eq 'install https://github.com/taiki3/update-tools/releases/latest/download/update-tools.json') 'Install UpdateTools from its GitHub Releases manifest'
         }
     }
 } } finally {

@@ -4,12 +4,10 @@ Winget・Scoop・uv tool をまとめて更新する小さなスクリプト。U
 
 ## インストール
 
-現在、配布先を移行準備中です。以下の `gitlab.example.com` とプロジェクト ID `1234` は仮値です。移行先の確定後、`install.ps1` と `Publish-Package.ps1` を含めて実際の配布先へ置き換えてください。
-
-配布先の設定後、通常権限の PowerShell で実行します。
+通常権限の PowerShell で実行します。認証不要の導入には、リポジトリと Release が公開されている必要があります。
 
 ```powershell
-irm https://gitlab.example.com/api/v4/projects/1234/packages/generic/update-tools/latest/install.ps1 | iex
+irm https://github.com/taiki3/update-tools/releases/latest/download/install.ps1 | iex
 ```
 
 Scoop がなければ公式インストーラーで導入し、Winget がなければ `scoop install main/winget`、UpdateTools が Scoop に未登録なら公開マニフェストからインストールします。既にあるものは再インストール・更新しません。導入時にアプリの一括更新は実行しません。
@@ -17,6 +15,13 @@ Scoop がなければ公式インストーラーで導入し、Winget がなけ�
 導入時に `UV_SYSTEM_CERTS=true` をユーザー環境変数に保存し、実行中の PowerShell にも反映します。uv が Windows の証明書ストアを使うための設定です。既存環境にも上記ワンライナーの再実行で設定できます。
 
 0.2.x 以前から移行する場合も上記を実行します。古い `%LOCALAPPDATA%\UpdateTools\bin` の PATH 登録は外してください。
+
+GitLab 配布版を Scoop で導入済みの場合は、配布元を切り替えるために一度だけ再インストールします。
+
+```powershell
+scoop uninstall update-tools
+irm https://github.com/taiki3/update-tools/releases/latest/download/install.ps1 | iex
+```
 
 ## 使い方
 
@@ -32,8 +37,8 @@ Winget はバージョン不明のアプリも更新対象に含め、利用規�
 
 ## 開発・配布
 
-`VERSION` を上げ、`tests\Smoke.Tests.ps1` で検証してからコミット・push し、`Publish-Package.ps1` を実行します。配布先の GitLab にログイン済みの `glab` が必要です。
+`VERSION` を上げ、`tests\Smoke.Tests.ps1` で検証してからコミット・push し、`Publish-Package.ps1` を実行します。GitHub にログイン済みの `gh` が必要です。
 
-ZIP と Scoop マニフェストを Generic Package に公開します。Scoop がマニフェストの URL を記憶して更新を確認するため、専用 bucket や独自の更新コードは不要です。
+`v<VERSION>` の GitHub Release に ZIP・Scoop マニフェスト・導入スクリプトを添付します。最新のマニフェストは `/releases/latest/download/update-tools.json`、ZIP はバージョン固定 URL を参照します。Scoop がマニフェストの URL を記憶して更新を確認するため、専用 bucket や独自の更新コードは不要です。
 
 アンインストール: `scoop uninstall update-tools`

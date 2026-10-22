@@ -15,7 +15,7 @@
     }
     $appPath = scoop.cmd prefix update-tools 2>$null
     if (!(Test-Path -LiteralPath $appPath)) {
-        scoop.cmd install 'https://gitlab.example.com/api/v4/projects/1234/packages/generic/update-tools/latest/update-tools.json'
+        scoop.cmd install 'https://github.com/taiki3/update-tools/releases/latest/download/update-tools.json'
         if (!(Test-Path -LiteralPath (scoop.cmd prefix update-tools 2>$null))) { throw 'UpdateTools installation failed.' }
     }
 }
