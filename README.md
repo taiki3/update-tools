@@ -4,7 +4,9 @@ Winget・Scoop・uv tool をまとめて更新する小さなスクリプト。U
 
 ## インストール
 
-通常権限の PowerShell で実行します。
+現在、配布先を移行準備中です。以下の `gitlab.example.com` とプロジェクト ID `1234` は仮値です。移行先の確定後、`install.ps1` と `Publish-Package.ps1` を含めて実際の配布先へ置き換えてください。
+
+配布先の設定後、通常権限の PowerShell で実行します。
 
 ```powershell
 irm https://gitlab.example.com/api/v4/projects/1234/packages/generic/update-tools/latest/install.ps1 | iex
