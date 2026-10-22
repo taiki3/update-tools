@@ -12,6 +12,8 @@ irm https://gitlab.example.com/api/v4/projects/1234/packages/generic/update-tool
 
 Scoop がなければ公式インストーラーで導入し、Winget がなければ `scoop install main/winget`、UpdateTools が Scoop に未登録なら公開マニフェストからインストールします。既にあるものは再インストール・更新しません。導入時にアプリの一括更新は実行しません。
 
+導入時に `UV_SYSTEM_CERTS=true` をユーザー環境変数に保存し、実行中の PowerShell にも反映します。uv が Windows の証明書ストアを使うための設定です。既存環境にも上記ワンライナーの再実行で設定できます。
+
 0.2.x 以前から移行する場合も上記を実行します。古い `%LOCALAPPDATA%\UpdateTools\bin` の PATH 登録は外してください。
 
 ## 使い方

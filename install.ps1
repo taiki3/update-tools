@@ -2,6 +2,8 @@
 & {
     $ErrorActionPreference = 'Stop'
     $PSNativeCommandUseErrorActionPreference = $false
+    [Environment]::SetEnvironmentVariable('UV_SYSTEM_CERTS', 'true', 'User')
+    $env:UV_SYSTEM_CERTS = 'true'
     if (!(Get-Command scoop.cmd -ErrorAction SilentlyContinue)) {
         Set-ExecutionPolicy Bypass -Scope Process -Force
         Invoke-RestMethod https://get.scoop.sh | Invoke-Expression

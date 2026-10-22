@@ -34,7 +34,8 @@ function Assert($condition, $message) { if (!$condition) { throw $message } }
     } finally { [Console]::OutputEncoding = $originalEncoding }
 }
 
-foreach ($alreadyInstalled in @($true, $false)) {
+$savedSystemCerts = @{ User = [Environment]::GetEnvironmentVariable('UV_SYSTEM_CERTS', 'User'); Process = $env:UV_SYSTEM_CERTS }
+try { foreach ($alreadyInstalled in @($true, $false)) {
     & {
         $state = @{ Calls = @(); ScoopPresent = $alreadyInstalled; WingetPresent = $alreadyInstalled; AppPresent = $alreadyInstalled }
         function Get-Command {
@@ -59,5 +60,8 @@ foreach ($alreadyInstalled in @($true, $false)) {
             Assert ($state.Calls[2] -like 'install https://*/latest/update-tools.json') 'Install UpdateTools from its Scoop manifest'
         }
     }
+} } finally {
+    [Environment]::SetEnvironmentVariable('UV_SYSTEM_CERTS', $savedSystemCerts.User, 'User')
+    $env:UV_SYSTEM_CERTS = $savedSystemCerts.Process
 }
 Write-Host 'All smoke tests passed.'
